@@ -121,6 +121,15 @@ H_{i_t,:} \mathrel{+}= u_t\, Z_{j_t,:}\qquad (t=1,\dots,q).
 Each update is a SAXPY of length $r$, so the cost is $O(qr)$.
 Then compute $K H$ in $O(n^2 r)$ time (dense $K$), and add $\lambda KX$.
 
+\paragraph{Implementation sketch (matvec).}
+Given $X\in\RR^{n\times r}$, precompute $G\leftarrow KX$.
+Initialize $H\leftarrow 0\in\RR^{n\times r}$.
+Loop over observed entries $t=1,\dots,q$:
+compute (or fetch) the Khatri--Rao row $z_t\equiv Z_{j_t,:}$,
+compute the scalar $u_t\leftarrow G_{i_t,:} z_t^\top$,
+and update $H_{i_t,:} \leftarrow H_{i_t,:} + u_t z_t$.
+Finally return $Y\leftarrow K H + \lambda G$.
+
 \paragraph{Matvec complexity.}
 Assuming dense $K$:
 \begin{itemize}
