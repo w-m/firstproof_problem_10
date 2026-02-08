@@ -33,7 +33,8 @@ Compute `B = T Z` by iterating over the `q` observations:
 ## Optional change of variables
 If `K` is invertible, you can solve for the CP factor directly: `A_k = K W`. The objective becomes
 `min_A 0.5 ||P ∘ (T - A Z^T)||_F^2 + (λ/2) Tr(A^T K^{-1} A)`,
-with system `[(Z ⊗ I)^T P (Z ⊗ I) + λ (I ⊗ K^{-1})] vec(A) = vec(B)` and then recover `W = K^{-1} A`. This can reduce kernel *multiplications* (you only need solves with `K`).
+with system `[(Z ⊗ I)^T P (Z ⊗ I) + λ (I ⊗ K^{-1})] vec(A) = vec(B)` and then recover `W = K^{-1} A`.
+This is exactly equivalent to the original formulation (it is just a change of variables) and can reduce kernel *multiplications* (you only need solves with `K`).
 
 ## Preconditioner
 A practical Kronecker preconditioner drops the mask (`S S^T ≈ (q/N) I`), giving
