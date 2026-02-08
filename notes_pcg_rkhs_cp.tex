@@ -168,7 +168,10 @@ Hence applying $M^{-1}\approx A_0^{-1}$ to a vector $x=\vecop(X)$ can be done by
 This costs $O(n^2 r + n r^2)$ per application (often dominated by $O(n^2 r)$ when $n\ge r$), after one-time setup $O(n^3+r^3)$.
 
 \paragraph{Why this is reasonable.}
-$A$ equals $A_0$ when $P=I_N$; when entries are missing uniformly at random, $\mathbb{E}[P]=(q/N)I_N$, so $\mathbb{E}[(Z\otimes K)^\top P (Z\otimes K)] = (q/N)(Z^\top Z\otimes K^2)$ is a scaled version of the same Kronecker term. Thus $A_0$ captures the dominant spectral structure, while $P$ acts as a perturbation; PCG corrects the mismatch through iterations.
+$A$ equals $A_0$ when $P=I_N$; when entries are missing uniformly at random, $\mathbb{E}[P]=(q/N)I_N$, so
+$\mathbb{E}[(Z\otimes K)^\top P (Z\otimes K)] = (q/N)(Z^\top Z\otimes K^2)$
+is a scaled version of the same Kronecker term.
+Thus $A_0$ (or the scaled variant $\alpha A_0$ with $\alpha=q/N$) captures the dominant spectral structure, while $P$ acts as a perturbation; PCG corrects the mismatch through iterations.
 
 \subsection*{Simpler (cheaper) preconditioners}
 If eigendecompositions are too costly, a cheaper alternative is a block-diagonal preconditioner
