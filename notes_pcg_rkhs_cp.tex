@@ -181,6 +181,8 @@ Let $G\equiv Z^\top Z\in\RR^{r\times r}$. Since $Z$ is a Khatri--Rao product, $G
 G = \mathop{\ast}\limits_{i\ne k} (A_i^\top A_i),
 \]
 costing $O(\sum_{i\ne k} n_i r^2)$.
+Indeed, for columns $a,b\in[r]$, one has
+$G_{ab}=\sum_{j\in[M]} Z_{j,a}Z_{j,b}=\sum_{i_1,\dots,i_{k-1},i_{k+1},\dots,i_d}\prod_{\ell\ne k} A_\ell(i_\ell,a)A_\ell(i_\ell,b)=\prod_{\ell\ne k} (A_\ell^\top A_\ell)_{ab}$.
 If we precompute eigendecompositions
 \[
 K=U\Lambda U^\top,\qquad G=V\Sigma V^\top,
