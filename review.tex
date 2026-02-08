@@ -1,0 +1,155 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=1in]{geometry}
+\usepackage{enumitem}
+
+\newcommand{\vecop}{\operatorname{vec}}
+\newcommand{\RR}{\mathbb{R}}
+
+\begin{document}
+
+\section*{Review of ``PCG for the RKHS CP-ALS mode-$k$ subproblem (missing data)''}
+
+\subsection*{Summary}
+
+The document describes how to solve the $nr \times nr$ linear system
+arising from the mode-$k$ subproblem of a CP decomposition with
+RKHS-constrained modes and missing data, using preconditioned
+conjugate gradients (PCG). The main contributions are:
+(i) an implicit matrix-vector product in $O(n^2r + qr)$ via gather/scatter,
+(ii) a Kronecker-structured preconditioner motivated by uniform sampling,
+and (iii) a complexity analysis showing the method avoids $O(N)$
+computation and the $O(n^3 r^3)$ cost of a dense solve.
+
+\medskip\noindent
+\textbf{Overall assessment:} The core mathematical content is
+\textbf{correct}. The matvec procedure, the preconditioner
+diagonalization, and the complexity claims all check out, and are
+confirmed by the accompanying numerical scripts. The document is
+concise and largely well-written. There are several presentation issues
+and a few substantive gaps that should be addressed before the document
+can be considered complete.
+
+\subsection*{Correctness verification}
+
+\begin{itemize}[leftmargin=*]
+\item \textbf{Kronecker-vec identity} (Eq.~2): 
+  $(Z \otimes K)\vecop(X) = \vecop(KXZ^\top)$ is a standard identity and is used correctly. Dimensions check: $Z \in \RR^{M\times r}$, $K \in \RR^{n\times n}$, $X \in \RR^{n\times r}$, result $\in \RR^{nM}$. \checkmark
+
+\item \textbf{Gather/scatter matvec} (Steps~1--4):
+  The procedure correctly implements $Ax = (Z\otimes K)^\top P(Z\otimes K)x + \lambda(I_r\otimes K)x$
+  via (1) compute $G = KX$, (2) gather $u_t = G_{i_t,:}\cdot z_t$,
+  (3) scatter/accumulate $H = \widetilde{U}Z$, (4) output $\vecop(KH + \lambda G)$.
+  The key observation that $(Z\otimes K)^\top \vecop(\widetilde{U}) = \vecop(K\widetilde{U}Z)$
+  is correct by the adjoint Kronecker identity. Verified numerically to machine precision. \checkmark
+
+\item \textbf{Preconditioner diagonalization} (Section~3):
+  The formula $A_0 = \alpha(Z^\top Z)\otimes K^2 + \lambda(I_r\otimes K)$
+  diagonalizes in the $(V\otimes U)$ basis with eigenvalues $\alpha\sigma_a\lambda_b^2+\lambda\lambda_b$.
+  Verified numerically. \checkmark
+
+\item \textbf{SPD argument} (Section~1): The claim that $A\succ 0$ when $K\succ 0$ and $\lambda > 0$ is correct.
+  The first term is PSD (being of the form $C^\top D C$ with $D\succeq 0$) and the second
+  is PD. \checkmark
+
+\item \textbf{RHS computation}: The sparse MTTKRP $B_{i_t,:} \mathrel{+}= t_t z_t$ correctly computes $B = TZ$
+  since $T$ has zeros at unobserved positions. Verified numerically. \checkmark
+
+\item \textbf{Complexity claims}: All operation counts are correct:
+  matvec $O(n^2r + qr)$, preconditioner $O(n^2r + nr^2)$, RHS $O(n^2r + qr)$. \checkmark
+\end{itemize}
+
+\subsection*{Issues and suggestions}
+
+\paragraph{1. Variable name collision ($G$).}
+The symbol $G$ is used for two different objects:
+\begin{itemize}
+\item In Section~2, Step~1: $G \leftarrow KX$ (temporary in the matvec algorithm).
+\item In Section~3: $G \equiv Z^\top Z$ (the Khatri--Rao Gram matrix).
+\end{itemize}
+This collision is confusing and should be resolved. For instance, rename the matvec
+temporary to $\Gamma$ or $\widehat{G}$, or rename the Gram matrix to $\Phi$ (as is common
+in CP-ALS literature, where it is often called the ``Gamma'' matrix).
+
+\paragraph{2. Notation $t_t$ for observed values.}
+In the RHS paragraph, ``for each observed value~$t_t$ at $(i_t,j_t)$'' reuses the
+letter $t$ for both the index and the value, creating confusion with the tensor $T$
+and the loop index. A different symbol (e.g., $v_t$, $\tau_t$, or $y_t$) would be clearer.
+
+\paragraph{3. Scatter description (line after Eq.~5).}
+The text says ``$Su$ is the sparse $n\times M$ matrix with nonzeros $u_t$ at $(i_t,j_t)$.''
+Strictly, $Su \in \RR^N$ is a \emph{vector}; it becomes an $n\times M$ matrix
+after reshaping via $\vecop^{-1}$. This distinction matters because the document
+is otherwise careful about the $\vecop$ operator.
+
+\paragraph{4. Missing convergence / iteration count analysis.}
+The PCG iteration count~$m$ is left unspecified with the remark
+``typically $m \ll nr$ with a good preconditioner.''
+For a complete complexity comparison with the $O(n^3r^3)$ dense solve,
+a bound on~$m$ (or at least a condition number estimate for
+$A_0^{-1}A$) is needed. Without such a bound the claimed complexity
+advantage is informal.
+
+Concretely: the preconditioner is motivated by the approximation $P \approx \alpha I$,
+but the quality of this approximation depends on the sampling pattern.
+For highly non-uniform or very sparse observation masks, $A_0$ may be
+a poor approximation of~$A$, leading to large~$m$.
+A brief discussion of when the preconditioner is effective (e.g., 
+$m = O(1)$ under near-uniform sampling) or a reference to relevant
+literature on incomplete-data preconditioning would strengthen the contribution.
+
+\paragraph{5. Preconditioner choice of $\alpha$.}
+The document sets $\alpha = q/N$ with the motivation 
+$\mathbb{E}[P] = (q/N)I$ under uniform sampling. 
+In practice, the observations may not be uniformly distributed. 
+It would be useful to briefly discuss:
+(a) whether other choices of $\alpha$ are preferable (e.g., $\alpha = \|P(Z\otimes K)\|_F^2 / \|Z\otimes K\|_F^2$),
+and (b) sensitivity of PCG iteration count to the choice of $\alpha$.
+
+\paragraph{6. One-time setup costs.}
+The eigendecompositions of $K$ ($O(n^3)$) and $G$ ($O(r^3)$) are described as one-time costs
+but are not included in the total complexity formula in Section~4.
+Since these are amortized over all PCG iterations (and potentially over
+outer ALS iterations), this is acceptable, but should be stated explicitly
+to avoid confusion.
+
+\paragraph{7. Block-diagonal alternative (last sentence of Section~3).}
+The ``cheaper alternative'' of replacing $G$ by $\mathrm{diag}(G)$ is mentioned
+in passing but not developed. Since this decouples the $r$ columns
+and reduces the preconditioner application to $r$ independent $n\times n$ solves,
+it could be a practical default. Either develop this or remove the mention
+to avoid raising unanswered questions.
+
+\paragraph{8. Minor: Hadamard product notation.}
+The Hadamard product is denoted $\ast$ (with $\mathop{\ast}$ in the displayed equation),
+which could be confused with convolution or the $*$-algebra operation.
+The more standard notations $\odot$ or $\circ$ would be preferable.
+(Note that $\odot$ is already used for the Khatri--Rao product in the
+problem statement, but the document could clarify the dual usage or adopt $\circ$.)
+
+\subsection*{Questions for the authors}
+
+\begin{enumerate}
+\item Can you provide a condition number bound for $A_0^{-1}A$ under
+  reasonable assumptions on the sampling pattern? Even an asymptotic
+  estimate as $q/N \to \alpha$ would be informative.
+
+\item For the case $K$ only PSD (not PD), you suggest adding a nugget
+  $\varepsilon I$. Have you considered instead working in the
+  range of $K$ directly (reducing to $mr$ unknowns where $m = \mathrm{rank}(K)$)?
+  This is briefly mentioned but not developed.
+
+\item How does the PCG iteration count scale empirically with $n$, $r$,
+  and $q/N$? Even a small table or figure from the existing numerical
+  experiments would significantly strengthen the practical claims.
+\end{enumerate}
+
+\subsection*{Verdict}
+
+The mathematical content is \textbf{correct} and the algorithmic
+contribution is sound. The main weakness is the lack of convergence
+analysis (issue~4 above). I would characterize this as a
+\textbf{minor revision}: the issues identified are presentation and
+completeness concerns, not correctness problems.
+
+\end{document}
