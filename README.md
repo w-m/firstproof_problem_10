@@ -6,6 +6,7 @@ This repo contains a short writeup and small verification scripts for solving th
 - `verify_precond.py`: verifies the closed-form Kronecker preconditioner application.
 - `demo_pcg_solver.py`: runs PCG with the Kronecker preconditioner on a small system.
 - `verify_change_of_variables.py`: verifies the equivalent formulation that solves for `A_k = K W` directly.
+- `demo_pcg_A_variable.py`: runs PCG on the `A_k`-variable system with a Kronecker-sum preconditioner.
 
 Run scripts with:
 
