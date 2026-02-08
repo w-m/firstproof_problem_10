@@ -1,6 +1,7 @@
 This repo contains a short writeup and small verification scripts for solving the RKHS-mode CP-ALS subproblem with missing data using PCG.
 
 - `notes_pcg_rkhs_cp.tex` / `notes_pcg_rkhs_cp.pdf`: main technical note (matvec derivation, preconditioner, complexity).
+- `answer_pcg_rkhs_cp.tex` / `answer_pcg_rkhs_cp.pdf`: shorter answer-style writeup.
 - `pcg_rkhs_cp_summary.md`: condensed summary.
 - `verify_matvec.py`: verifies the implicit matvec against an explicit Kronecker+selection construction (small random instance).
 - `verify_precond.py`: verifies the closed-form Kronecker preconditioner application.
