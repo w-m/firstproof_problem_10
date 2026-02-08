@@ -18,7 +18,7 @@ Use `vec(K X Z^T) = (Z ⊗ K) vec(X)` and implement masking via the observed ind
 Per matvec:
 1. `G ← K X`  (`O(n^2 r)`).
 2. For each observed entry `t=1..q` with unfolding index `(i_t, j_t)`:
-   - fetch/compute `z_t = Z[j_t,:]` (compute on-the-fly from CP factors if `Z` is not stored),
+   - fetch/compute `z_t = Z[j_t,:]` (compute on-the-fly from CP factors if `Z` is not stored; optionally cache all `z_t` once in `O(qr)` memory to make per-iteration costs independent of `d`),
    - `u_t ← <G[i_t,:], z_t>` (dot in `R^r`),
    - accumulate `H[i_t,:] += u_t z_t`.
    This realizes `H = (S S^T vec(KXZ^T)) reshaped * Z` in `O(q r)` time (or `O(q d r)` if each `z_t` is formed from `d-1` factors).
