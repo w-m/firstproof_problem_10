@@ -35,16 +35,17 @@ If `K` is invertible, you can solve for the CP factor directly: `A_k = K W`. The
 `min_A 0.5 ||P ∘ (T - A Z^T)||_F^2 + (λ/2) Tr(A^T K^{-1} A)`,
 with system `[(Z ⊗ I)^T P (Z ⊗ I) + λ (I ⊗ K^{-1})] vec(A) = vec(B)` and then recover `W = K^{-1} A`.
 This is exactly equivalent to the original formulation (it is just a change of variables) and can reduce kernel *multiplications*: the data-term matvec uses only `A Z^T` (no `K`), plus the regularizer requires solves with `K`.
-A corresponding mask-dropped preconditioner becomes a **Kronecker sum**: `A0A = (Z^T Z) ⊗ I + λ(I ⊗ K^{-1})`, diagonalizable in the eigenbases of `Z^T Z` and `K`.
+A corresponding mask-dropped (or mean-mask) preconditioner becomes a **Kronecker sum**: `A0A = α (Z^T Z) ⊗ I + λ(I ⊗ K^{-1})` with `α≈q/N`, diagonalizable in the eigenbases of `Z^T Z` and `K`.
 
 ## Preconditioner
-A practical Kronecker preconditioner drops the mask (`S S^T ≈ (q/N) I`), giving
+A practical Kronecker preconditioner replaces the mask by a scaled identity (`S S^T ≈ α I` with `α=q/N`), giving
 
-`A0 = (Z^T Z) ⊗ (K^2) + λ (I ⊗ K)`.
+`A0 = α (Z^T Z) ⊗ (K^2) + λ (I ⊗ K)`.
 
 - Compute `G = Z^T Z` cheaply without forming `Z` using the standard Khatri–Rao Gram identity:
   `Z^T Z = (A_1^T A_1) * ... * (A_{k-1}^T A_{k-1}) * (A_{k+1}^T A_{k+1}) * ... * (A_d^T A_d)`,
   where `*` is the Hadamard (entrywise) product.
-- Apply `A0^{-1}` via eigendecompositions of `K` and `G` (or Schur/Sylvester solves): per apply about `O(n^2 r + n r^2)` after one-time `O(n^3 + r^3)` setup. Heuristically, if the sampling mask is close to uniform, `P = S S^T` is a small perturbation of `(q/N)I`, so `A` is a perturbation of a scaled Kronecker system.
+- Apply `A0^{-1}` via eigendecompositions of `K` and `G` (or Schur/Sylvester solves): per apply about `O(n^2 r + n r^2)` after one-time `O(n^3 + r^3)` setup.
+- Spectral-approx view: with `C = Z⊗K`, one has `C^T P C` as a sum of sampled row outer products and `E[C^T P C] = α C^T C`; matrix Chernoff bounds (under a leverage-score/incoherence condition) give `(1±ε) α C^T C ≈ C^T P C`, hence `spec(A0^{-1}A)` is clustered near `1` and PCG converges in few iterations.
 
 Per PCG iteration cost ≈ matvec + preconditioner apply = `O(n^2 r + q r)` plus lower-order terms.

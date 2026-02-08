@@ -9,14 +9,9 @@ def khatri_rao(A, B):
     return np.einsum('ir,jr->ijr', A, B).reshape(I * J, r)
 
 
-def build_selection(mask_flat):
+def observed_indices(mask_flat):
     # mask_flat: boolean of length N
-    idx = np.where(mask_flat)[0]
-    N = mask_flat.size
-    q = idx.size
-    S = np.zeros((N, q))
-    S[idx, np.arange(q)] = 1.0
-    return S, idx
+    return np.where(mask_flat)[0]
 
 
 def implicit_matvec(x_vec, K, Z_row, obs_idx_pairs, lam, r):
@@ -69,15 +64,16 @@ def main():
     q = 9
     mask_flat = np.zeros(N, dtype=bool)
     mask_flat[rng.choice(N, size=q, replace=False)] = True
-    S, obs_flat = build_selection(mask_flat)
+    obs_flat = observed_indices(mask_flat)
 
     # convert flat indices into (i,j) pairs for mode-1 unfolding (column-major vec)
     # vec stacks columns: column j has rows i=0..n-1
     obs_pairs = [(idx % n, idx // n) for idx in obs_flat]
 
-    # explicit system matrix
+    # explicit system matrix (P selects observed rows)
     ZkronK = np.kron(Z, K)  # (N x nr)
-    Aexp = ZkronK.T @ (S @ S.T) @ ZkronK + lam * np.kron(np.eye(r), K)
+    ZkronK_obs = ZkronK[obs_flat, :]
+    Aexp = ZkronK_obs.T @ ZkronK_obs + lam * np.kron(np.eye(r), K)
 
     # test vector
     x = rng.standard_normal(n * r)

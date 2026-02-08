@@ -8,16 +8,11 @@ def khatri_rao(A, B):
     return np.einsum('ir,jr->ijr', A, B).reshape(I * J, r)
 
 
-def build_selection(mask_flat):
-    idx = np.where(mask_flat)[0]
-    N = mask_flat.size
-    q = idx.size
-    S = np.zeros((N, q))
-    S[idx, np.arange(q)] = 1.0
-    return S, idx
+def observed_indices(mask_flat):
+    return np.where(mask_flat)[0]
 
 
-def apply_A0inv_vec(x, K, G, lam):
+def apply_A0inv_vec(x, K, G, lam, alpha=1.0):
     n = K.shape[0]
     r = G.shape[0]
     X = x.reshape(n, r, order="F")
@@ -26,7 +21,7 @@ def apply_A0inv_vec(x, K, G, lam):
     evalG, V = np.linalg.eigh(G)
 
     Xh = U.T @ X @ V
-    denom = (evalK[:, None] ** 2) * evalG[None, :] + lam * evalK[:, None]
+    denom = alpha * (evalK[:, None] ** 2) * evalG[None, :] + lam * evalK[:, None]
     Yh = Xh / denom
     Y = U @ Yh @ V.T
     return Y.reshape(n * r, order="F")
@@ -79,14 +74,15 @@ def main():
 
     # observation mask
     q = 200
+    alpha = q / N
     mask_flat = np.zeros(N, dtype=bool)
     mask_flat[rng.choice(N, size=q, replace=False)] = True
-    S, obs_flat = build_selection(mask_flat)
-    P = S @ S.T
+    obs_flat = observed_indices(mask_flat)
 
-    # explicit A only used for verification
+    # explicit A only used for verification (P selects observed rows)
     ZkronK = np.kron(Z, K)
-    Aexp = ZkronK.T @ P @ ZkronK + lam * np.kron(np.eye(r), K)
+    ZkronK_obs = ZkronK[obs_flat, :]
+    Aexp = ZkronK_obs.T @ ZkronK_obs + lam * np.kron(np.eye(r), K)
 
     # observation list in (i,j) unfolding coordinates
     obs_pairs = [(idx % n, idx // n) for idx in obs_flat]
@@ -110,7 +106,7 @@ def main():
         return Y.reshape(n * r, order="F")
 
     def M_inv(x):
-        return apply_A0inv_vec(x, K, G, lam)
+        return apply_A0inv_vec(x, K, G, lam, alpha=alpha)
 
     x_pcg, iters, rel = pcg(A_mv, b, M_inv, tol=1e-10, maxit=200)
     x_star = np.linalg.solve(Aexp, b)

@@ -1,0 +1,91 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage[margin=1in]{geometry}
+
+\newcommand{\vecop}{\operatorname{vec}}
+\newcommand{\RR}{\mathbb{R}}
+\newcommand{\Tr}{\operatorname{Tr}}
+
+\begin{document}
+
+\section*{PCG for the RKHS CP-ALS mode-$k$ subproblem (missing data)}
+
+Fix all CP factors except the RKHS mode $k$ and solve for $W\in\RR^{n\times r}$ in
+\begin{equation}
+\label{eq:sys}
+\Bigl[(Z\otimes K)^\top S S^\top (Z\otimes K)+\lambda(I_r\otimes K)\Bigr]\vecop(W)=(I_r\otimes K)\vecop(B)=\vecop(KB),
+\end{equation}
+where $K\in\RR^{n\times n}$ is a symmetric psd kernel matrix, $Z\in\RR^{M\times r}$ is the Khatri--Rao product of the other factors, $B=TZ$ (sparse MTTKRP), and $S\in\RR^{N\times q}$ selects the $q$ observed entries of the mode-$k$ unfolding $T\in\RR^{n\times M}$ ($N=nM$). We assume $n,r<q\ll N$.
+
+\paragraph{SPD structure.}
+Let $P\equiv SS^\top$ (diagonal mask, $P^2=P$). Define
+\[A\equiv (Z\otimes K)^\top P (Z\otimes K)+\lambda(I_r\otimes K),\qquad b\equiv \vecop(KB).\]
+Then $A$ is symmetric. If $K\succ 0$ and $\lambda>0$, then for $x\neq 0$,
+\[x^\top A x = \|P^{1/2}(Z\otimes K)x\|_2^2 + \lambda\, x^\top (I_r\otimes K)x>0,\]
+so $A\succ 0$ and conjugate gradients applies. (If $K$ is only psd, add a small nugget to make it SPD or reduce to the nonzero eigenspace of $K$.)
+
+\section*{Matrix--vector products in $O(n^2r+qr)$ (no $O(N)$ work)}
+
+Write a vector $x\in\RR^{nr}$ as $x=\vecop(X)$ with $X\in\RR^{n\times r}$ (column-stacked). The identity
+\begin{equation}
+\label{eq:vec}
+(Z\otimes K)\vecop(X)=\vecop(KXZ^\top)
+\end{equation}
+lets us interpret the data term as ``predict on observed entries''.
+
+\paragraph{Observed index list.}
+Store the $q$ observed unfolding indices as pairs $(i_t,j_t)$ with $i_t\in[n]$, $j_t\in[M]$.
+For any matrix $U\in\RR^{n\times M}$, $S^\top\vecop(U)=(U_{i_t,j_t})_{t=1}^q$ (gather), and $S u$ corresponds to a sparse matrix with nonzeros $u_t$ at the same locations (scatter).
+
+\paragraph{Matvec algorithm.}
+Given $X$:
+\begin{enumerate}
+\item Compute $G\leftarrow KX$ (cost $O(n^2r)$ for dense $K$).
+\item For $t=1,\dots,q$ let $z_t\equiv Z_{j_t,:}\in\RR^r$ and form the scalar
+\begin{equation}
+\label{eq:gather}
+ u_t \leftarrow \langle G_{i_t,:}, z_t\rangle.
+\end{equation}
+\item Accumulate $H\in\RR^{n\times r}$ by
+\begin{equation}
+\label{eq:accum}
+ H_{i_t,:} \mathrel{+}= u_t\, z_t,\qquad t=1,\dots,q.
+\end{equation}
+This computes $H=\widetilde U Z$ where $\widetilde U$ is the sparse masked matrix with nonzeros $\widetilde U_{i_t,j_t}=u_t$.
+\item Return $Y\leftarrow K H + \lambda G$ and output $\vecop(Y)$.
+\end{enumerate}
+Correctness follows from the transpose identity
+$(Z\otimes K)^\top\vecop(\widetilde U)=\vecop(K\widetilde U Z)=\vecop(KH)$ and from $\lambda(I_r\otimes K)\vecop(X)=\lambda\vecop(KX)$.
+
+\paragraph{Avoiding explicit $Z$.}
+$M$ can be huge, so we never form $Z$. For each observation we can compute $z_t$ on the fly from the other factor rows as a Hadamard product; cost $O((d-1)r)$ per entry. If memory allows, cache all $z_t$ once in $O(qr)$ memory so each matvec costs $O(qr)$ for the sparse loops.
+
+\paragraph{RHS.}
+Compute $B=TZ$ by the same sparse accumulation: for each observed value $t_t$ at $(i_t,j_t)$, do $B_{i_t,:}\mathrel{+}=t_t z_t$ (cost $O(qr)$), then set $b=\vecop(KB)$ (extra $O(n^2r)$).
+
+\section*{Preconditioning}
+
+A practical preconditioner replaces the mask by its mean under uniform sampling: $P\approx \alpha I_N$ with $\alpha\equiv q/N$. This gives
+\begin{equation}
+\label{eq:A0}
+A_0 \equiv \alpha (Z\otimes K)^\top (Z\otimes K)+\lambda(I_r\otimes K)
+      = \alpha(Z^\top Z)\otimes (K^2) + \lambda(I_r\otimes K).
+\end{equation}
+Let $G\equiv Z^\top Z\in\RR^{r\times r}$. In CP-ALS, $G$ is obtained without forming $Z$ via the Khatri--Rao Gram identity
+\[G = \mathop{\ast}\limits_{i\ne k} (A_i^\top A_i),\]
+where $\ast$ denotes Hadamard product.
+
+If $K=U\Lambda U^\top$ and $G=V\Sigma V^\top$, then $A_0$ diagonalizes in the Kronecker basis $(V\otimes U)$; applying $A_0^{-1}$ to $x=\vecop(X)$ reduces to
+\[\widehat X\leftarrow U^\top X V,\qquad \widehat X_{b,a}\leftarrow \widehat X_{b,a}/(\alpha\sigma_a\lambda_b^2+\lambda\lambda_b),\qquad X\leftarrow U\widehat X V^\top.
+\]
+Thus each preconditioner application costs $O(n^2r+nr^2)$ after one-time eigendecompositions ($O(n^3+r^3)$).
+
+\section*{Complexity}
+
+Let $m$ be the number of PCG iterations.
+Per iteration:
+\[\text{matvec }Ax:\ O(n^2r+qr),\qquad \text{preconditioner }A_0^{-1}:\ O(n^2r+nr^2),\qquad \text{vector ops}:\ O(nr).
+\]
+Total solve cost is $O\bigl(m(n^2r+qr+nr^2)\bigr)$ time and $O(nr+q)$ memory (plus optional $O(qr)$ cache), with no $O(N)$ computation and no formation of the dense $(nr)\times(nr)$ matrix.
+
+\end{document}

@@ -8,13 +8,9 @@ def khatri_rao(A, B):
     return np.einsum('ir,jr->ijr', A, B).reshape(I * J, r)
 
 
-def build_selection(mask_flat):
+def observed_indices(mask_flat):
     idx = np.where(mask_flat)[0]
-    N = mask_flat.size
-    q = idx.size
-    S = np.zeros((N, q))
-    S[idx, np.arange(q)] = 1.0
-    return S, idx
+    return idx
 
 
 def pcg(A_mv, b, M_inv, tol=1e-10, maxit=500):
@@ -42,8 +38,8 @@ def pcg(A_mv, b, M_inv, tol=1e-10, maxit=500):
     return x, maxit, rel
 
 
-def apply_A0inv_Avec(x, K, G, lam):
-    # A0A = G ⊗ I + lam (I ⊗ K^{-1})
+def apply_A0inv_Avec(x, K, G, lam, alpha=1.0):
+    # A0A = alpha (G ⊗ I) + lam (I ⊗ K^{-1})
     n = K.shape[0]
     r = G.shape[0]
     X = x.reshape(n, r, order="F")
@@ -52,7 +48,7 @@ def apply_A0inv_Avec(x, K, G, lam):
     evalG, V = np.linalg.eigh(G)
 
     Xh = U.T @ X @ V
-    denom = evalG[None, :] + lam / evalK[:, None]
+    denom = alpha * evalG[None, :] + lam / evalK[:, None]
     Yh = Xh / denom
     Y = U @ Yh @ V.T
     return Y.reshape(n * r, order="F")
@@ -79,10 +75,10 @@ def main():
 
     # mask / observations
     q = 250
+    alpha = q / N
     mask_flat = np.zeros(N, dtype=bool)
     mask_flat[rng.choice(N, size=q, replace=False)] = True
-    S, obs_flat = build_selection(mask_flat)
-    P = S @ S.T
+    obs_flat = observed_indices(mask_flat)
     obs_pairs = [(idx % n, idx // n) for idx in obs_flat]
 
     def Z_row(j):
@@ -117,11 +113,12 @@ def main():
         return Y.reshape(n * r, order="F")
 
     def M_inv(x):
-        return apply_A0inv_Avec(x, K, G, lam)
+        return apply_A0inv_Avec(x, K, G, lam, alpha=alpha)
 
-    # explicit matrix for verification
+    # explicit matrix for verification (P selects observed rows)
     ZkronI = np.kron(Z, np.eye(n))
-    Aexp = ZkronI.T @ P @ ZkronI + lam * np.kron(np.eye(r), np.linalg.inv(K))
+    ZkronI_obs = ZkronI[obs_flat, :]
+    Aexp = ZkronI_obs.T @ ZkronI_obs + lam * np.kron(np.eye(r), np.linalg.inv(K))
 
     x_pcg, iters, rel = pcg(A_mv, b, M_inv, tol=1e-10, maxit=500)
     x_star = np.linalg.solve(Aexp, b)

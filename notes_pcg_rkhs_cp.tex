@@ -72,7 +72,28 @@ Then the data term in \eqref{eq:objective} is $\tfrac12\|\mathcal{L}(W)-y\|_2^2$
 \[
 (\mathcal{L}^\top \mathcal{L} + \lambda\,\mathcal{R})\vecop(W)=\mathcal{L}^\top y,\qquad \mathcal{R}=I_r\otimes K.
 \]
-Crucially, both $\mathcal{L}(X)$ (gather) and $\mathcal{L}^\top u$ (scatter + multiply by $Z$ and $K$) can be applied in $O(qr+n^2r)$ time.
+
+\paragraph{Adjoint $\mathcal{L}^\top$ (scatter--accumulate formula).}
+Equip $\RR^q$ and $\RR^{n\times r}$ with the Euclidean and Frobenius inner products.
+Given $u\in\RR^q$, let $U\in\RR^{n\times M}$ be the sparse matrix with $(U)_{i_t,j_t}=u_t$ (all other entries $0$), i.e.
+$\vecop(U)=S u$.
+Then
+\begin{equation}
+\label{eq:L-adjoint}
+\mathcal{L}^\top u = \vecop\bigl(K\,U\,Z\bigr)\in\RR^{nr}.
+\end{equation}
+\emph{Proof.} For any $X\in\RR^{n\times r}$,
+\[
+\langle \mathcal{L}(X),u\rangle
+=\sum_{t=1}^q u_t (KXZ^\top)_{i_t,j_t}
+=\langle U, KXZ^\top\rangle_F
+=\langle K U Z, X\rangle_F
+=\langle \vecop(KUZ), \vecop(X)\rangle.
+\]
+Hence $\mathcal{L}^\top u=\vecop(KUZ)$.
+
+Crucially, neither $U$ nor $Z$ need be formed: $UZ\in\RR^{n\times r}$ is computed by accumulating the $q$ nonzeros as in \eqref{eq:sparse-mttkrp}, and multiplying by $K$ costs $O(n^2r)$.
+Thus both $\mathcal{L}(X)$ (gather) and $\mathcal{L}^\top u$ (scatter/accumulate then multiply by $K$) can be applied in $O(qr+n^2r)$ time.
 
 Represent an input vector $x\in\RR^{nr}$ as a matrix $X\in\RR^{n\times r}$ such that $x=\vecop(X)$. Use the identity
 \begin{equation}
@@ -149,6 +170,8 @@ compute the scalar $u_t\leftarrow G_{i_t,:} z_t^\top$,
 and update $H_{i_t,:} \leftarrow H_{i_t,:} + u_t z_t$.
 Finally return $Y\leftarrow K H + \lambda G$.
 
+In practice, the gather step can be batched as $u_t=\langle G_{i_t,:},z_t\rangle$ via a single fused kernel (or vectorized BLAS), and the accumulation $H_{i_t,:}{+}{=}u_t z_t$ can be implemented with a scatter-add primitive; both still cost $O(qr)$.
+
 \paragraph{Matvec complexity.}
 Assuming dense $K$:
 \begin{itemize}
@@ -181,51 +204,91 @@ with normal equation
 This formulation replaces multiplications by $K$ with solves in $K$; in particular, a matvec requires forming only observed entries of $AZ^\top$ (cost $O(qr)$) and applying $K^{-1}$ to an $n\times r$ matrix (e.g. via a Cholesky factorization) at cost $O(n^2 r)$.
 Concretely, for $X\in\RR^{n\times r}$, the main term uses the same gather/scatter pattern as before but with $G\leftarrow X$ in \eqref{eq:gather} (no kernel multiply), and the regularizer adds $\lambda K^{-1}X$.
 A natural preconditioner in this variable is obtained by dropping the mask:
-$A_{0,A}=(Z^\top Z)\otimes I_n + \lambda(I_r\otimes K^{-1})$ (or scaled by $\alpha=q/N$). Since this is a Kronecker sum, it diagonalizes in the eigenbases of $Z^\top Z$ and $K$ with eigenvalues $\sigma_a + \lambda/\lambda_b$.
+$A_{0,A}=\alpha\bigl((Z^\top Z)\otimes I_n\bigr) + \lambda(I_r\otimes K^{-1})$ with $\alpha\approx q/N$. Since this is a Kronecker sum, it diagonalizes in the eigenbases of $Z^\top Z$ and $K$ with eigenvalues $\alpha\sigma_a + \lambda/\lambda_b$.
+Equivalently, applying $A_{0,A}^{-1}$ to $\vecop(R)$ amounts to solving $\alpha K X G + \lambda X = K R$ for $X$ (a Sylvester-type equation).
 After solving for $A$, recover $W=K^{-1}A$.
 (Equivalence follows immediately by substituting $A=KW$ into \eqref{eq:objective}; the corresponding normal equations match and the minimizers map bijectively when $K$ is invertible.)
 
 \section*{Preconditioning}
 
 \subsection*{Kronecker ``full-observation'' preconditioner}
-A standard and effective choice is to drop the mask $P$ (equivalently, pretend all entries are observed). Then
+A standard and effective choice is to drop the mask $P$ (equivalently, pretend all entries are observed), or to replace it by its mean under uniform sampling $P\approx \alpha I_N$ with $\alpha\equiv q/N$. This yields the Kronecker-structured approximation
 \[
-A_0 \equiv (Z\otimes K)^\top (Z\otimes K) + \lambda(I_r\otimes K)
-= (Z^\top Z)\otimes (K^\top K) + \lambda(I_r\otimes K)
-= (Z^\top Z)\otimes (K^2) + \lambda(I_r\otimes K),
+A_0 \equiv \alpha (Z\otimes K)^\top (Z\otimes K) + \lambda(I_r\otimes K)
+= \alpha(Z^\top Z)\otimes (K^\top K) + \lambda(I_r\otimes K)
+= \alpha(Z^\top Z)\otimes (K^2) + \lambda(I_r\otimes K),
 \]
 where $K^2$ denotes the usual matrix product $KK$ (since $K$ is symmetric).
-Let $G\equiv Z^\top Z\in\RR^{r\times r}$. Since $Z$ is a Khatri--Rao product, $G$ can be computed without forming $Z$ via the Hadamard product (denoted $\ast$) of Gram matrices,
-\[
+Let $G\equiv Z^\top Z\in\RR^{r\times r}$. Since $Z$ is a Khatri--Rao product, $G$ can be computed without forming $Z$ via the Hadamard product (denoted $\ast$) of Gram matrices:
+\begin{equation}
+\label{eq:KR-gram}
 G = \mathop{\ast}\limits_{i\ne k} (A_i^\top A_i),
-\]
+\end{equation}
 costing $O(\sum_{i\ne k} n_i r^2)$.
 Indeed, for columns $a,b\in[r]$, one has
-$G_{ab}=\sum_{j\in[M]} Z_{j,a}Z_{j,b}=\sum_{i_1,\dots,i_{k-1},i_{k+1},\dots,i_d}\prod_{\ell\ne k} A_\ell(i_\ell,a)A_\ell(i_\ell,b)=\prod_{\ell\ne k} (A_\ell^\top A_\ell)_{ab}$.
+\begin{align*}
+G_{ab}
+&=\sum_{j\in[M]} Z_{j,a}Z_{j,b}\\
+&=\sum_{i_1,\dots,i_{k-1},i_{k+1},\dots,i_d}\;\prod_{\ell\ne k} A_\ell(i_\ell,a)A_\ell(i_\ell,b)\\
+&=\prod_{\ell\ne k} (A_\ell^\top A_\ell)_{ab}.
+\end{align*}
 If we precompute eigendecompositions
 \[
 K=U\Lambda U^\top,\qquad G=V\Sigma V^\top,
 \]
 then $A_0$ diagonalizes in the Kronecker basis:
 \[
-A_0 = (V\otimes U)\,\mathrm{diag}\bigl(\sigma_a\lambda_b^2 + \lambda\lambda_b\bigr)_{a\in[r],b\in[n]}\,(V\otimes U)^\top.
+A_0 = (V\otimes U)\,\mathrm{diag}\bigl(\alpha\sigma_a\lambda_b^2 + \lambda\lambda_b\bigr)_{a\in[r],b\in[n]}\,(V\otimes U)^\top.
 \]
 Hence applying $M^{-1}\approx A_0^{-1}$ to a vector $x=\vecop(X)$ can be done by:
 \begin{enumerate}
 \item transform $\widehat X \leftarrow U^\top X V$ (two small dense multiplies),
-\item elementwise divide $\widehat X_{b,a} \leftarrow \widehat X_{b,a}/(\sigma_a\lambda_b^2 + \lambda\lambda_b)$,
+\item elementwise divide $\widehat X_{b,a} \leftarrow \widehat X_{b,a}/(\alpha\sigma_a\lambda_b^2 + \lambda\lambda_b)$,
 \item inverse transform $X\leftarrow U\widehat X V^\top$.
 \end{enumerate}
+
+\paragraph{Matrix-equation view (Sylvester form).}
+For any $X\in\RR^{n\times r}$,
+\[
+A_0\vecop(X)=\vecop\bigl(\alpha K^2 X G + \lambda K X\bigr)=\vecop\bigl(K(\alpha K X G + \lambda X)\bigr).
+\]
+Thus applying $A_0^{-1}$ to $\vecop(R)$ is equivalent to solving the matrix equation
+\begin{equation}
+\label{eq:precond-sylvester}
+\alpha K X G + \lambda X = K^{-1}R.
+\end{equation}
+Diagonalizing $K$ and $G$ gives the elementwise formula above; alternatively one may use Schur-based Sylvester solvers.
+
 This costs $O(n^2 r + n r^2)$ per application (often dominated by $O(n^2 r)$ when $n\ge r$), after one-time setup $O(n^3+r^3)$.
 
 \paragraph{Why this is reasonable.}
-$A$ equals $A_0$ when $P=I_N$; when entries are missing uniformly at random, $\mathbb{E}[P]=(q/N)I_N$, so
-$\mathbb{E}[(Z\otimes K)^\top P (Z\otimes K)] = (q/N)(Z^\top Z\otimes K^2)$
-is a scaled version of the same Kronecker term.
-Thus $A_0$ (or the scaled variant $\alpha A_0$ with $\alpha=q/N$) captures the dominant spectral structure, while $P$ acts as a perturbation; PCG corrects the mismatch through iterations.
-Formally, writing $P=\alpha I + E$ gives $A=\alpha(Z^\top Z\otimes K^2)+\lambda(I\otimes K) + (Z\otimes K)^\top E (Z\otimes K)$, and
-\(\|(Z\otimes K)^\top E (Z\otimes K)\|\le \|E\|\,\|Z\|^2\,\|K\|^2\), so when the sampling mask is ``close'' to uniform (small $\|E\|$) the spectra of $A$ and $\alpha A_0$ are close.
-For common random-sampling models (entries observed i.i.d.\ or uniformly without replacement), standard matrix concentration bounds imply $\|E\|$ is small with high probability once $q$ is large enough, motivating the effectiveness of this preconditioner in practice.
+If there are no missing entries ($P=I_N$) and we set $\alpha=1$, then $A=A_0$ exactly.
+More generally, under uniform random sampling of entries one has $\mathbb{E}[P]=(q/N)I_N$, hence
+$\mathbb{E}[(Z\otimes K)^\top P (Z\otimes K)] = (q/N)(Z^\top Z\otimes K^2)$,
+so choosing $\alpha=q/N$ makes $A_0$ match the mean (and capture the dominant Kronecker spectral structure), while the deviation of $P$ from $\alpha I$ acts as a perturbation that PCG corrects through iterations.
+Formally, write $C\equiv (Z\otimes K)\in\RR^{N\times nr}$ and note that $C^\top P C$ is a sum of $q$ sampled row outer products.
+Under uniform sampling, $\mathbb{E}[C^\top P C]=\alpha C^\top C$.
+Matrix Chernoff/concentration results imply that, under a mild incoherence/leverage-score condition on the rows of $C$, one has with high probability
+\begin{equation}
+\label{eq:spectral-approx}
+(1-\varepsilon)\,\alpha\,C^\top C\ \preceq\ C^\top P C\ \preceq\ (1+\varepsilon)\,\alpha\,C^\top C,
+\end{equation}
+provided $q\gtrsim \mu\,(nr)\log(nr)/\varepsilon^2$, where one possible choice is the row-coherence
+$\mu\equiv \frac{N}{\|C\|_F^2}\max_{s\in[N]}\|C_{s,:}\|_2^2$.
+Thus $C^\top P C$ is a small (sandwiched) perturbation of $\alpha C^\top C$ even though $\|P-\alpha I\|$ itself is not small.
+
+Writing $A=A_0+\Delta$ with $\Delta\equiv C^\top(P-\alpha I)C$, Eq.~\eqref{eq:spectral-approx} yields $\|\Delta\|\le \varepsilon\,\alpha\,\|C\|_2^2 = \varepsilon\,\alpha\,\|Z\|_2^2\,\|K\|_2^2$.
+Using Weyl's inequality gives
+\[
+\lambda_i(A_0)-\|\Delta\|\le \lambda_i(A)\le \lambda_i(A_0)+\|\Delta\|.
+\]
+Equivalently, for $M\equiv A_0$ the eigenvalues of $M^{-1}A=I+M^{-1}\Delta$ lie in $[1-\delta,1+\delta]$ with
+\[
+\delta\equiv \|M^{-1/2}\Delta M^{-1/2}\|\le \frac{\|\Delta\|}{\lambda_{\min}(A_0)}
+\le \varepsilon\,\frac{\alpha\,\|Z\|_2^2\,\|K\|_2}{\lambda},\qquad (\text{since }\lambda_{\min}(A_0)\ge \lambda\,\lambda_{\min}(K)).
+\]
+In particular, if $\delta<1$ then $\kappa(M^{-1}A)\le (1+\delta)/(1-\delta)$ and PCG converges in $O(\sqrt{\kappa}\,\log(1/\varepsilon))$ iterations.
+Note that $\|Z\|_2^2=\lambda_{\max}(Z^\top Z)=\lambda_{\max}(G)=\|G\|_2$, and $G$ is available via the Khatri--Rao Gram identity \eqref{eq:KR-gram} (computed from the CP factor Gram matrices), so this estimate can be evaluated without ever forming $Z$.
 
 \subsection*{Simpler (cheaper) preconditioners}
 If eigendecompositions are too costly, a cheaper alternative is a block-diagonal preconditioner

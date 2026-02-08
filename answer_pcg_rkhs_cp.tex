@@ -37,6 +37,7 @@ Given $X$:
 \item Return $Y\leftarrow K H + \lambda G$ and output $\vecop(Y)$ ($O(n^2r)$).
 \end{enumerate}
 This equals $Ax$ because the first term is $(Z\otimes K)^\top\vecop(\widetilde U)$ with $\widetilde U$ the masked matrix whose nonzeros are $u_t$ at $(i_t,j_t)$, and $(Z\otimes K)^\top\vecop(\widetilde U)=\vecop(K\widetilde U Z)=\vecop(KH)$.
+Equivalently, define $\mathcal{L}(X)\equiv S^\top\vecop(KXZ^\top)$ so that $A=\mathcal{L}^\top\mathcal{L}+\lambda(I\otimes K)$; its adjoint is $\mathcal{L}^\top u=\vecop(KUZ)$ where $U$ is the sparse matrix with $\vecop(U)=Su$, which is implemented by the same scatter/accumulate loop.
 
 \paragraph{Avoiding explicit $Z$.}
 $M$ can be huge; instead compute each needed $z_t$ on the fly as a Hadamard product of the other factor rows using the observed multi-index. Optionally cache all $z_t$ once in $O(qr)$ memory.
@@ -45,7 +46,7 @@ $M$ can be huge; instead compute each needed $z_t$ on the fly as a Hadamard prod
 Compute $B=T Z$ by a sparse MTTKRP over the $q$ observed entries: for each observed value $t_t$ at $(i_t,j_t)$, do $B_{i_t,:}\mathrel{+}=t_t z_t$ ($O(qr)$), then compute $KB$ ($O(n^2r)$).
 
 \subsection*{4. Preconditioner exploiting Kronecker structure}
-A standard preconditioner drops the mask ($P\approx \alpha I$ with $\alpha=q/N$), yielding
+A standard preconditioner replaces the mask by a scaled identity ($P\approx \alpha I$ with $\alpha=q/N$), motivated by $\mathbb{E}[(Z\otimes K)^\top P (Z\otimes K)]=\alpha(Z^\top Z\otimes K^2)$ under uniform sampling, yielding
 \[
 A_0=\alpha\bigl[(Z\otimes K)^\top(Z\otimes K)\bigr]+\lambda(I\otimes K)=\alpha(Z^\top Z)\otimes (K^2)+\lambda(I\otimes K).
 \]
@@ -53,7 +54,7 @@ Let $G\equiv Z^\top Z$ (computable without forming $Z$ via Hadamard products of 
 \[
 \widehat X\leftarrow U^\top X V,\qquad \widehat X_{b,a}\leftarrow \widehat X_{b,a}/(\alpha\sigma_a\lambda_b^2+\lambda\lambda_b),\qquad X\leftarrow U\widehat X V^\top.
 \]
-Cost per application: $O(n^2r+nr^2)$ after one-time setup $O(n^3+r^3)$.
+Cost per application: $O(n^2r+nr^2)$ after one-time setup $O(n^3+r^3)$. In matrix form, $A_0\vecop(X)=\vecop\bigl(K(\alpha KXG+\lambda X)\bigr)$, so applying $A_0^{-1}$ amounts to solving the Sylvester-type equation $\alpha KXG+\lambda X=K^{-1}R$.
 
 \subsection*{5. Complexity}
 Let $m$ be the PCG iteration count (typically $m\ll nr$ with a good preconditioner). Per iteration:

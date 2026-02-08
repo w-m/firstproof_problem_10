@@ -8,13 +8,8 @@ def khatri_rao(A, B):
     return np.einsum('ir,jr->ijr', A, B).reshape(I * J, r)
 
 
-def build_selection(mask_flat):
-    idx = np.where(mask_flat)[0]
-    N = mask_flat.size
-    q = idx.size
-    S = np.zeros((N, q))
-    S[idx, np.arange(q)] = 1.0
-    return S
+def observed_indices(mask_flat):
+    return np.where(mask_flat)[0]
 
 
 def main():
@@ -39,8 +34,7 @@ def main():
     q = 25
     mask_flat = np.zeros(N, dtype=bool)
     mask_flat[rng.choice(N, size=q, replace=False)] = True
-    S = build_selection(mask_flat)
-    P = S @ S.T
+    obs_flat = observed_indices(mask_flat)
 
     # data unfolding T with zeros at missing
     T_vec = rng.standard_normal(N) * mask_flat.astype(float)  # only observed values kept
@@ -50,7 +44,8 @@ def main():
 
     # W-system (as in prompt)
     ZkronK = np.kron(Z, K)
-    Aw = ZkronK.T @ P @ ZkronK + lam * np.kron(np.eye(r), K)
+    ZkronK_obs = ZkronK[obs_flat, :]
+    Aw = ZkronK_obs.T @ ZkronK_obs + lam * np.kron(np.eye(r), K)
     bw = np.kron(np.eye(r), K) @ B.reshape(n * r, order="F")
     w = np.linalg.solve(Aw, bw)
     W = w.reshape(n, r, order="F")
@@ -58,7 +53,8 @@ def main():
 
     # A-system (change of variables A=KW)
     ZkronI = np.kron(Z, np.eye(n))
-    Aa = ZkronI.T @ P @ ZkronI + lam * np.kron(np.eye(r), Kinv)
+    ZkronI_obs = ZkronI[obs_flat, :]
+    Aa = ZkronI_obs.T @ ZkronI_obs + lam * np.kron(np.eye(r), Kinv)
     ba = B.reshape(n * r, order="F")
     a = np.linalg.solve(Aa, ba)
     A_direct = a.reshape(n, r, order="F")
