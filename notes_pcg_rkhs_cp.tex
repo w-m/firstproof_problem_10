@@ -181,7 +181,8 @@ M_{\mathrm{bd}} = (\mathrm{diag}(G)\otimes K^2) + \lambda(I_r\otimes K),
 which decouples the $r$ components, requiring $r$ solves with $n\times n$ matrices of the form $(g_{\ell\ell} K^2 + \lambda K)=K(g_{\ell\ell}K+\lambda I)$. If $K$ is factored once (Cholesky), these are fast; if $K$ is large, one can use an approximate factorization (pivoted Cholesky / incomplete Cholesky) as a preconditioner for these inner solves.
 
 \section*{Overall complexity and scaling}
-Let $m$ be the number of PCG iterations to reach a desired tolerance.
+Let $m$ be the number of PCG iterations to reach a desired tolerance; standard theory gives
+$m=O\bigl(\sqrt{\kappa(M^{-1}A)}\,\log(1/\varepsilon)\bigr)$ for relative error $\varepsilon$, so a good preconditioner aims to make $\kappa(M^{-1}A)$ close to $1$.
 \begin{itemize}
 \item One-time setup: compute $Z$ and (optionally) $G=Z^\top Z$ in $O(Mr^2)$ if done naively, but in CP-ALS contexts $Z$ is implicit and $G$ is usually assembled from Hadamard products of Gram matrices of each factor at cost $O(\sum_{i\ne k} n_i r^2)$, avoiding $M$.
 \item Right-hand side: compute $B$ in $O(qr)$ and then $KB$ in $O(n^2 r)$.
