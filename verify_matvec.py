@@ -19,26 +19,24 @@ def build_selection(mask_flat):
     return S, idx
 
 
-def implicit_matvec(x_vec, K, Z, obs_idx_pairs, lam):
-    # x_vec = vec(X) with X (n x r), Z (M x r)
+def implicit_matvec(x_vec, K, Z_row, obs_idx_pairs, lam, r):
+    """Implicit matvec for A = (Z⊗K)^T P (Z⊗K) + lam(I⊗K).
+
+    Z_row(j) must return the length-r row Z[j,:] without forming the full M×r matrix.
+    """
     n = K.shape[0]
-    M = Z.shape[0]
-    r = Z.shape[1]
     X = x_vec.reshape(n, r, order="F")
 
     G = K @ X  # n x r
 
-    # gather u_t = (KX)[i,:] dot Z[j,:]
-    u = np.empty(len(obs_idx_pairs))
-    for t, (i, j) in enumerate(obs_idx_pairs):
-        u[t] = G[i, :] @ Z[j, :]
-
-    # accumulate H = U~ Z where U~ has entries u_t at (i,j)
+    # gather u_t = (KX)[i,:] dot Z[j,:] and accumulate H = U~ Z
     H = np.zeros((n, r))
-    for t, (i, j) in enumerate(obs_idx_pairs):
-        H[i, :] += u[t] * Z[j, :]
+    for (i, j) in obs_idx_pairs:
+        z = Z_row(j)
+        u = G[i, :] @ z
+        H[i, :] += u * z
 
-    Y = K @ H + lam * (K @ X)
+    Y = K @ H + lam * G
     return Y.reshape(n * r, order="F")
 
 
@@ -62,6 +60,11 @@ def main():
     A3 = rng.standard_normal((n3, r))
     Z = khatri_rao(A3, A2)  # (n3*n2) x r; corresponds to unfolding column index j
 
+    def Z_row(j):
+        i2 = j % n2
+        i3 = j // n2
+        return A3[i3, :] * A2[i2, :]
+
     # random observation mask
     q = 9
     mask_flat = np.zeros(N, dtype=bool)
@@ -79,7 +82,7 @@ def main():
     # test vector
     x = rng.standard_normal(n * r)
     y_exp = Aexp @ x
-    y_imp = implicit_matvec(x, K, Z, obs_pairs, lam)
+    y_imp = implicit_matvec(x, K, Z_row, obs_pairs, lam, r)
 
     rel_err = np.linalg.norm(y_exp - y_imp) / np.linalg.norm(y_exp)
     print(f"relative matvec error: {rel_err:.3e}")
