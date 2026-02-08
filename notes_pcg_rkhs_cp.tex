@@ -209,4 +209,7 @@ Hence total time $O\bigl(m(n^2 r + q r + n r^2) + q r + n^2 r\bigr)$, which is d
 \paragraph{Key point: no $N$-scale work.}
 All operations are expressed in terms of $n,r,q$ and small Gram matrices; selection/scatter uses only the $q$ observed indices and values.
 
+\paragraph{Remark (faster kernel multiplies).}
+If $K$ admits a fast matrix--vector/matrix multiply (e.g., via Nystr\"om, inducing points, random features, or a structured kernel), then the $O(n^2 r)$ terms above can be reduced accordingly; the $O(qr)$ sparse gather/accumulate terms remain unchanged.
+
 \end{document}
