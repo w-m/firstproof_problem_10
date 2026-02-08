@@ -4,4 +4,10 @@ This repo contains a short writeup and small verification scripts for solving th
 - `pcg_rkhs_cp_summary.md`: condensed summary.
 - `verify_matvec.py`: verifies the implicit matvec against an explicit Kronecker+selection construction (small random instance).
 - `verify_precond.py`: verifies the closed-form Kronecker preconditioner application.
-- `demo_pcg_solver.py`: runs PCG with the Kronecker preconditioner on a small explicit system.
+- `demo_pcg_solver.py`: runs PCG with the Kronecker preconditioner on a small system.
+
+Run scripts with:
+
+```bash
+uv run --with numpy <script>.py
+```
