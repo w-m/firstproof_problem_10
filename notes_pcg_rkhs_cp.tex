@@ -168,6 +168,19 @@ B_{i_t,:} \mathrel{+}= t_t\, Z_{j_t,:},
 \]
 which costs $O(qr)$ given access to $Z_{j_t,:}$ (or $O(qdr)$ if each $Z_{j_t,:}$ is formed on the fly from the CP factors), followed by $KB$ in $O(n^2 r)$. (This is the same sparse accumulation pattern as \eqref{eq:sparse-mttkrp}.)
 
+\section*{Optional change of variables (solve for $A_k=KW$)}
+Assume $K\succ 0$ and define the CP factor directly as $A\equiv A_k\equiv KW\in\RR^{n\times r}$.
+Then \eqref{eq:objective} becomes
+\[
+\min_{A\in\RR^{n\times r}}\;\frac12\|P\circ (T-AZ^\top)\|_F^2 + \frac\lambda2\,\Tr(A^\top K^{-1}A),
+\]
+with normal equation
+\[
+\Bigl[(Z\otimes I_n)^\top P (Z\otimes I_n) + \lambda(I_r\otimes K^{-1})\Bigr]\vecop(A)=\vecop(B),\qquad B=TZ.
+\]
+This formulation replaces multiplications by $K$ with solves in $K$; in particular, a matvec requires forming only observed entries of $AZ^\top$ (cost $O(qr)$) and applying $K^{-1}$ to an $n\times r$ matrix (e.g. via a Cholesky factorization) at cost $O(n^2 r)$.
+After solving for $A$, recover $W=K^{-1}A$.
+
 \section*{Preconditioning}
 
 \subsection*{Kronecker ``full-observation'' preconditioner}
