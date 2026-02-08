@@ -1,0 +1,65 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage[margin=1in]{geometry}
+
+\newcommand{\vecop}{\operatorname{vec}}
+\newcommand{\RR}{\mathbb{R}}
+
+\begin{document}
+
+\section*{PCG for the RKHS mode-$k$ CP subproblem with missing entries}
+
+We solve for $W\in\RR^{n\times r}$ in
+\[
+\Bigl[(Z\otimes K)^\top S S^\top (Z\otimes K)+\lambda(I_r\otimes K)\Bigr]\vecop(W)=(I_r\otimes K)\vecop(B),
+\]
+with $K\in\RR^{n\times n}$ a symmetric kernel matrix, $Z\in\RR^{M\times r}$ the Khatri--Rao product of the other CP factors, and $S\in\RR^{N\times q}$ selecting the $q$ observed entries of the mode-$k$ unfolding ($N=nM$). We assume $n,r<q\ll N$.
+
+\subsection*{1. Why (P)CG applies}
+Let $P\equiv SS^\top$ (a diagonal mask). Define
+\[
+A=(Z\otimes K)^\top P (Z\otimes K)+\lambda(I_r\otimes K),\qquad b=(I_r\otimes K)\vecop(B)=\vecop(KB).
+\]
+$A$ is symmetric. If $K\succ 0$ and $\lambda>0$, then $A\succ 0$, so CG applies; preconditioning reduces iterations. Direct dense solve costs $O((nr)^3)=O(n^3r^3)$ and requires forming $A$, while PCG only needs (i) matvecs $x\mapsto Ax$ and (ii) applying a cheap approximation $M^{-1}\approx A^{-1}$.
+
+\subsection*{2. Matvec in $O(n^2r+qr)$ without forming $A$}
+Represent $x=\vecop(X)$ with $X\in\RR^{n\times r}$. Use
+\[ (Z\otimes K)\vecop(X)=\vecop(KXZ^\top). \]
+Store the observed index list in unfolding coordinates as pairs $(i_t,j_t)$ for $t=1,\dots,q$ with $i_t\in[n]$, $j_t\in[M]$. Then $S^\top\vecop(U)=(U_{i_t,j_t})_{t=1}^q$ (gather) and $S$ scatters a length-$q$ vector back into an $n\times M$ sparse matrix.
+
+Given $X$:
+\begin{enumerate}
+\item Compute $G\leftarrow KX$ ($O(n^2r)$).
+\item For each observed entry $t$:
+  compute (or fetch) the row $z_t\equiv Z_{j_t,:}$ and the scalar
+  $u_t\leftarrow G_{i_t,:} z_t^\top$ ($O(r)$).
+\item Accumulate $H\in\RR^{n\times r}$ via $H_{i_t,:}\mathrel{+}=u_t z_t$ for $t=1,\dots,q$ ($O(qr)$).
+\item Return $Y\leftarrow K H + \lambda G$ and output $\vecop(Y)$ ($O(n^2r)$).
+\end{enumerate}
+This equals $Ax$ because the first term is $(Z\otimes K)^\top\vecop(\widetilde U)$ with $\widetilde U$ the masked matrix whose nonzeros are $u_t$ at $(i_t,j_t)$, and $(Z\otimes K)^\top\vecop(\widetilde U)=\vecop(K\widetilde U Z)=\vecop(KH)$.
+
+\paragraph{Avoiding explicit $Z$.}
+$M$ can be huge; instead compute each needed $z_t$ on the fly as a Hadamard product of the other factor rows using the observed multi-index. Optionally cache all $z_t$ once in $O(qr)$ memory.
+
+\subsection*{3. RHS in $O(n^2r+qr)$}
+Compute $B=T Z$ by a sparse MTTKRP over the $q$ observed entries: for each observed value $t_t$ at $(i_t,j_t)$, do $B_{i_t,:}\mathrel{+}=t_t z_t$ ($O(qr)$), then compute $KB$ ($O(n^2r)$).
+
+\subsection*{4. Preconditioner exploiting Kronecker structure}
+A standard preconditioner drops the mask ($P\approx \alpha I$ with $\alpha=q/N$), yielding
+\[
+A_0=\alpha\bigl[(Z\otimes K)^\top(Z\otimes K)\bigr]+\lambda(I\otimes K)=\alpha(Z^\top Z)\otimes (K^2)+\lambda(I\otimes K).
+\]
+Let $G\equiv Z^\top Z$ (computable without forming $Z$ via Hadamard products of the factor Gram matrices). With eigendecompositions $K=U\Lambda U^\top$ and $G=V\Sigma V^\top$, $A_0$ diagonalizes in the Kronecker basis $(V\otimes U)$ and applying $A_0^{-1}$ to $\vecop(X)$ reduces to:
+\[
+\widehat X\leftarrow U^\top X V,\qquad \widehat X_{b,a}\leftarrow \widehat X_{b,a}/(\alpha\sigma_a\lambda_b^2+\lambda\lambda_b),\qquad X\leftarrow U\widehat X V^\top.
+\]
+Cost per application: $O(n^2r+nr^2)$ after one-time setup $O(n^3+r^3)$.
+
+\subsection*{5. Complexity}
+Let $m$ be the PCG iteration count (typically $m\ll nr$ with a good preconditioner). Per iteration:
+\[
+\text{matvec }Ax:\ O(n^2r+qr),\qquad \text{preconditioner }M^{-1}:\ O(n^2r+nr^2),\qquad \text{BLAS-1}:\ O(nr).
+\]
+Total solve: $O\bigl(m(n^2r+qr+nr^2)\bigr)$ time and $O(nr+q)$ memory (plus optional $O(qr)$ cache), with no $O(N)$ computation.
+
+\end{document}
