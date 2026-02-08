@@ -180,6 +180,7 @@ with normal equation
 \]
 This formulation replaces multiplications by $K$ with solves in $K$; in particular, a matvec requires forming only observed entries of $AZ^\top$ (cost $O(qr)$) and applying $K^{-1}$ to an $n\times r$ matrix (e.g. via a Cholesky factorization) at cost $O(n^2 r)$.
 After solving for $A$, recover $W=K^{-1}A$.
+(Equivalence follows immediately by substituting $A=KW$ into \eqref{eq:objective}; the corresponding normal equations match and the minimizers map bijectively when $K$ is invertible.)
 
 \section*{Preconditioning}
 
