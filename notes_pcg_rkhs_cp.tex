@@ -146,7 +146,12 @@ A standard and effective choice is to drop the mask $P$ (equivalently, pretend a
 A_0 \equiv (Z\otimes K)^\top (Z\otimes K) + \lambda(I_r\otimes K)
 = (Z^\top Z)\otimes (K^2) + \lambda(I_r\otimes K).
 \]
-Let $G\equiv Z^\top Z\in\RR^{r\times r}$. If we precompute eigendecompositions
+Let $G\equiv Z^\top Z\in\RR^{r\times r}$. Since $Z$ is a Khatri--Rao product, $G$ can be computed without forming $Z$ via the Hadamard product (denoted $\ast$) of Gram matrices,
+\[
+G = \mathop{\ast}\limits_{i\ne k} (A_i^\top A_i),
+\]
+costing $O(\sum_{i\ne k} n_i r^2)$.
+If we precompute eigendecompositions
 \[
 K=U\Lambda U^\top,\qquad G=V\Sigma V^\top,
 \]
