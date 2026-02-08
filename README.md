@@ -5,6 +5,7 @@ This repo contains a short writeup and small verification scripts for solving th
 - `verify_matvec.py`: verifies the implicit matvec against an explicit Kronecker+selection construction (small random instance).
 - `verify_precond.py`: verifies the closed-form Kronecker preconditioner application.
 - `demo_pcg_solver.py`: runs PCG with the Kronecker preconditioner on a small system.
+- `verify_change_of_variables.py`: verifies the equivalent formulation that solves for `A_k = K W` directly.
 
 Run scripts with:
 
