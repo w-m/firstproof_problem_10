@@ -63,6 +63,17 @@ The algorithm only needs the ability to compute $A p_t$ (matvec) and to apply $M
 
 \section*{Efficient matrix--vector products without forming $A$}
 
+\paragraph{Operator viewpoint.}
+Define the linear map $\mathcal{L}:\RR^{n\times r}\to\RR^q$ by
+\[
+(\mathcal{L}(X))_t \equiv (K X Z^\top)_{i_t,j_t},\qquad t=1,\dots,q.
+\]
+Then the data term in \eqref{eq:objective} is $\tfrac12\|\mathcal{L}(W)-y\|_2^2$ with $y\equiv S^\top\vecop(T)$, and the normal equation is
+\[
+(\mathcal{L}^\top \mathcal{L} + \lambda\,\mathcal{R})\vecop(W)=\mathcal{L}^\top y,\qquad \mathcal{R}=I_r\otimes K.
+\]
+Crucially, both $\mathcal{L}(X)$ (gather) and $\mathcal{L}^\top u$ (scatter + multiply by $Z$ and $K$) can be applied in $O(qr+n^2r)$ time.
+
 Represent an input vector $x\in\RR^{nr}$ as a matrix $X\in\RR^{n\times r}$ such that $x=\vecop(X)$. Use the identity
 \begin{equation}
 \label{eq:vec-identity}
