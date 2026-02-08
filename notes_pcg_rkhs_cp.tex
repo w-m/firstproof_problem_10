@@ -40,7 +40,7 @@ Thus $A$ is symmetric. If $K\succ 0$ and $\lambda>0$, then $A\succ 0$ because fo
 \[
  x^\top A x = \|P^{1/2}(Z\otimes K)x\|_2^2 + \lambda\, x^\top (I_r\otimes K) x \ge \lambda\,x^\top (I_r\otimes K)x>0.
 \]
-(If $K$ is only psd, one can add a nugget $\varepsilon I_n$ to $K$ or instead regularize with $\lambda (I_r\otimes I_n)$; we proceed with the $K\succ 0$ case.)
+(If $K$ is only psd, one can add a nugget $\varepsilon I_n$ to $K$ or instead regularize with $\lambda (I_r\otimes I_n)$. Alternatively, write $K=U\Lambda U^\top$ with rank $m$ and parameterize $A_k=K W=U\Lambda\widetilde W$, reducing the unknown to $\widetilde W\in\RR^{m\times r}$ and yielding an SPD system of size $mr$.)
 Hence we can solve \eqref{eq:system} with (preconditioned) conjugate gradients (CG/PCG).
 
 \paragraph{2. Why PCG helps.}
