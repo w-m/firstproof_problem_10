@@ -10,6 +10,8 @@ with `K ∈ R^{n×n}` SPD kernel, `S` selecting the `q` observed tensor entries,
 The matrix is symmetric positive definite (if `K ≻ 0`, `λ>0`), so conjugate gradients applies; preconditioning reduces iterations. PCG avoids forming the dense `(nr)×(nr)` matrix (and avoids any `O(N)` work with `N = nM`).
 
 ## Matvec `y = A x` without forming `A`
+Operator view: define the linear map `L(X) ∈ R^q` by `(L(X))_t = (K X Z^T)_{i_t,j_t}` (gather the predicted values at the `q` observed indices). Then `A = L^T L + λ(I ⊗ K)`.
+
 Reshape `x = vec(X)` with `X ∈ R^{n×r}`.
 Use `vec(K X Z^T) = (Z ⊗ K) vec(X)` and implement masking via the observed index list.
 
