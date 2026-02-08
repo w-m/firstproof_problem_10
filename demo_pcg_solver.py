@@ -81,16 +81,33 @@ def main():
     q = 200
     mask_flat = np.zeros(N, dtype=bool)
     mask_flat[rng.choice(N, size=q, replace=False)] = True
-    S, _ = build_selection(mask_flat)
+    S, obs_flat = build_selection(mask_flat)
     P = S @ S.T
 
+    # explicit A only used for verification
     ZkronK = np.kron(Z, K)
     Aexp = ZkronK.T @ P @ ZkronK + lam * np.kron(np.eye(r), K)
+
+    # observation list in (i,j) unfolding coordinates
+    obs_pairs = [(idx % n, idx // n) for idx in obs_flat]
+
+    def Z_row(j):
+        i2 = j % n2
+        i3 = j // n2
+        return A3[i3, :] * A2[i2, :]
 
     b = rng.standard_normal(n * r)
 
     def A_mv(x):
-        return Aexp @ x
+        X = x.reshape(n, r, order="F")
+        Gx = K @ X
+        H = np.zeros((n, r))
+        for (i, j) in obs_pairs:
+            z = Z_row(j)
+            u = Gx[i, :] @ z
+            H[i, :] += u * z
+        Y = K @ H + lam * Gx
+        return Y.reshape(n * r, order="F")
 
     def M_inv(x):
         return apply_A0inv_vec(x, K, G, lam)
