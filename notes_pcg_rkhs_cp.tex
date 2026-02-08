@@ -100,6 +100,7 @@ Z_{j_t,:} \;=\; A_d(i_d^{(t)},:)\odot\cdots\odot A_{k+1}(i_{k+1}^{(t)},:)\odot A
 \]
 which can be computed on the fly in $O((d-1)r)$ time per observed entry (or faster if intermediate Hadamard products are cached).
 This keeps both memory and time independent of $M$.
+If $q$ is moderate, one can also precompute and store all needed rows $z_t\equiv Z_{j_t,:}$ for $t=1,\dots,q$ in an array of size $q\times r$, reducing the per-iteration cost from $O(qdr)$ to $O(qr)$ at the expense of $O(qr)$ memory.
 
 \subsection*{Matvec formula}
 Given $X\in\RR^{n\times r}$, compute $Y\in\RR^{n\times r}$ so that $\vecop(Y)=A\vecop(X)$.
