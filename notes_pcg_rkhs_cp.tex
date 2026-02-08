@@ -112,6 +112,13 @@ Adding the Tikhonov term gives
 Y = K\,(\widetilde U Z) + \lambda KX.
 \end{equation}
 
+\paragraph{Proof of \eqref{eq:matvec}.}
+Let $x=\vecop(X)$. The first term satisfies
+$(Z\otimes K)^\top P (Z\otimes K) x = (Z\otimes K)^\top \vecop(\widetilde U)$
+with $\widetilde U\equiv \mathrm{reshape}_{n\times M}\bigl(P\vecop(KXZ^\top)\bigr)$.
+Using \eqref{eq:transpose-identity} yields $\vecop(K\widetilde U Z)$, i.e., the matrix $K(\widetilde U Z)$.
+The regularizer contributes $\lambda(I_r\otimes K)\vecop(X)=\lambda\vecop(KX)$, giving \eqref{eq:matvec}.
+
 \subsection*{How to compute $\widetilde U Z$ in $O(qr)$}
 We never form $\widetilde U$ explicitly as an $n\times M$ array. Instead, compute the product $H\equiv \widetilde U Z\in\RR^{n\times r}$ by accumulating contributions from the $q$ nonzeros:
 \begin{equation}
