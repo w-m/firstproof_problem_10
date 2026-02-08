@@ -153,8 +153,10 @@ which costs $O(qr)$ given access to $Z_{j_t,:}$ (or $O(qdr)$ if each $Z_{j_t,:}$
 A standard and effective choice is to drop the mask $P$ (equivalently, pretend all entries are observed). Then
 \[
 A_0 \equiv (Z\otimes K)^\top (Z\otimes K) + \lambda(I_r\otimes K)
-= (Z^\top Z)\otimes (K^2) + \lambda(I_r\otimes K).
+= (Z^\top Z)\otimes (K^\top K) + \lambda(I_r\otimes K)
+= (Z^\top Z)\otimes (K^2) + \lambda(I_r\otimes K),
 \]
+where $K^2$ denotes the usual matrix product $KK$ (since $K$ is symmetric).
 Let $G\equiv Z^\top Z\in\RR^{r\times r}$. Since $Z$ is a Khatri--Rao product, $G$ can be computed without forming $Z$ via the Hadamard product (denoted $\ast$) of Gram matrices,
 \[
 G = \mathop{\ast}\limits_{i\ne k} (A_i^\top A_i),
