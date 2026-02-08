@@ -1,0 +1,192 @@
+% Notes: PCG for RKHS CP-ALS mode-k subproblem with missing entries
+% Session date: 2026-02-08
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb,amsfonts,mathtools}
+\usepackage[margin=1in]{geometry}
+
+\newcommand{\vecop}{\operatorname{vec}}
+\newcommand{\Tr}{\operatorname{Tr}}
+\newcommand{\RR}{\mathbb{R}}
+
+\begin{document}
+
+\section*{PCG for the infinite-dimensional mode-$k$ subproblem (missing data)}
+
+We consider the linear system in the unknown $W\in\RR^{n\times r}$
+\begin{equation}
+\label{eq:system}
+\Bigl[(Z\otimes K)^\top S S^\top (Z\otimes K) + \lambda (I_r\otimes K)\Bigr] \vecop(W)
+= (I_r\otimes K)\vecop(B),
+\end{equation}
+where $K\in\RR^{n\times n}$ is a (symmetric) psd kernel matrix, $Z\in\RR^{M\times r}$ is the Khatri--Rao product of the other factors, $S\in\RR^{N\times q}$ selects the $q$ observed entries (so $S^\top\vecop(T)$ equals the observed values), and $B=T Z\in\RR^{n\times r}$.
+Throughout we assume $n,r<q\ll N=nM$ and avoid any $O(N)$ work.
+
+\paragraph{1. Variational form, symmetry, and positive definiteness.}
+Let $P\equiv SS^\top\in\RR^{N\times N}$ be the diagonal ``mask'' matrix that keeps observed entries and zeros missing ones (so $P=P^\top=P^2$).
+The system \eqref{eq:system} is the normal equation for the regularized least-squares objective
+\begin{equation}
+\label{eq:objective}
+\min_{W\in\RR^{n\times r}}\;\frac12\,\bigl\|S^\top\vecop(T) - S^\top\vecop(KWZ^\top)\bigr\|_2^2 + \frac\lambda2\,\Tr(W^\top K W)
+\;=\;\frac12\,\|P\circ (T-KWZ^\top)\|_F^2 + \frac\lambda2\,\Tr(W^\top K W),
+\end{equation}
+where $\circ$ denotes Hadamard product and we used $\Tr(W^\top K W)=\|W\|_{\mathcal{H}}^2$ as the RKHS penalty.
+Writing the first term as $\tfrac12\|P^{1/2}(\vecop(T)-(Z\otimes K)\vecop(W))\|_2^2$ shows the Hessian is
+\[
+A \equiv (Z\otimes K)^\top P (Z\otimes K) + \lambda (I_r\otimes K)\in\RR^{nr\times nr},
+\qquad
+b \equiv (I_r\otimes K)\vecop(B)=\vecop(KB).
+\]
+Thus $A$ is symmetric. If $K\succ 0$ and $\lambda>0$, then $A\succ 0$ because for any $x\neq 0$,
+\[
+ x^\top A x = \|P^{1/2}(Z\otimes K)x\|_2^2 + \lambda\, x^\top (I_r\otimes K) x \ge \lambda\,x^\top (I_r\otimes K)x>0.
+\]
+(If $K$ is only psd, one can add a nugget $\varepsilon I_n$ to $K$ or instead regularize with $\lambda (I_r\otimes I_n)$; we proceed with the $K\succ 0$ case.)
+Hence we can solve \eqref{eq:system} with (preconditioned) conjugate gradients (CG/PCG).
+
+\paragraph{2. Why PCG helps.}
+Direct solution would require forming $A$ and performing a dense factorization costing $O((nr)^3)=O(n^3 r^3)$. In contrast, PCG requires only:
+(i) repeated matrix--vector products $y\leftarrow Ax$ and (ii) repeated applications of a preconditioner $M^{-1}$, with overall cost $\approx$ \#iters $\times$ (matvec + precond). Our goal is to implement both in $O(n^2 r + q r)$ time per iteration and memory $O(nr+qr)$, never touching $N$-scale arrays.
+
+\paragraph{3. PCG (brief).}
+Choose an SPD preconditioner $M\approx A$ that is cheap to invert.
+Starting from $x_0$ (often $0$ or the previous ALS iterate), define $r_0=b-Ax_0$ and solve $M z_0=r_0$.
+Set $p_0=z_0$ and for $t=0,1,2,\dots$ iterate
+\[
+\alpha_t=\frac{\langle r_t,z_t\rangle}{\langle p_t, A p_t\rangle},\quad
+x_{t+1}=x_t+\alpha_t p_t,\quad
+r_{t+1}=r_t-\alpha_t A p_t,\quad
+\text{solve }M z_{t+1}=r_{t+1},\quad
+\beta_t=\frac{\langle r_{t+1},z_{t+1}\rangle}{\langle r_t,z_t\rangle},\quad
+p_{t+1}=z_{t+1}+\beta_t p_t.
+\]
+The algorithm only needs the ability to compute $A p_t$ (matvec) and to apply $M^{-1}$.
+
+\section*{Efficient matrix--vector products without forming $A$}
+
+Represent an input vector $x\in\RR^{nr}$ as a matrix $X\in\RR^{n\times r}$ such that $x=\vecop(X)$. Use the identity
+\begin{equation}
+\label{eq:vec-identity}
+ (Z\otimes K)\vecop(X)=\vecop(K X Z^\top),
+\end{equation}
+which is a special case of $\vecop(AXB^\top)=(B\otimes A)\vecop(X)$.
+
+\subsection*{Observed-entry operator implemented with index lists}
+Let the observed entries of the mode-$k$ unfolding be indexed by pairs $(i_t,j_t)$ for $t=1,\dots,q$ with $i_t\in[n]$ and $j_t\in[M]$. Then for any matrix $U\in\RR^{n\times M}$,
+\[
+S^\top \vecop(U) = \bigl(U_{i_t,j_t}\bigr)_{t=1}^q\in\RR^q,
+\qquad
+\text{and}
+\qquad
+\mathrm{reshape}_{n\times M}(S v)\text{ has nonzeros }(i_t,j_t)\text{ equal to }v_t.
+\]
+Thus we can realize $S^\top$ (gather) and $S$ (scatter) in $O(q)$ time using stored index arrays $(i_t,j_t)$.
+
+\paragraph{Avoiding explicit formation of $Z$.}
+Although $Z\in\RR^{M\times r}$ is defined as a Khatri--Rao product, $M=\prod_{i\ne k} n_i$ can be enormous, so we do \emph{not} store $Z$.
+Instead, for each observed tensor entry we typically store its full multi-index $(i_1^{(t)},\dots,i_d^{(t)})$; the corresponding row needed in \eqref{eq:gather} and \eqref{eq:sparse-mttkrp} is
+\[
+Z_{j_t,:} \;=\; A_d(i_d^{(t)},:)\odot\cdots\odot A_{k+1}(i_{k+1}^{(t)},:)\odot A_{k-1}(i_{k-1}^{(t)},:)\odot\cdots\odot A_1(i_1^{(t)},:),
+\]
+which can be computed on the fly in $O((d-1)r)$ time per observed entry (or faster if intermediate Hadamard products are cached).
+This keeps both memory and time independent of $M$.
+
+\subsection*{Matvec formula}
+Given $X\in\RR^{n\times r}$, compute $Y\in\RR^{n\times r}$ so that $\vecop(Y)=A\vecop(X)$.
+Write $G\equiv KX\in\RR^{n\times r}$.
+Then the observed predicted entries of $U\equiv K X Z^\top\in\RR^{n\times M}$ are
+\begin{equation}
+\label{eq:gather}
+ u_t \equiv U_{i_t,j_t} = G_{i_t,:}\,\cdot\, Z_{j_t,:}\quad (t=1,\dots,q),
+\end{equation}
+each a length-$r$ dot product.
+Now form the sparse matrix $\widetilde U\in\RR^{n\times M}$ with $(\widetilde U)_{i_t,j_t}=u_t$ and all other entries zero (this is exactly $\mathrm{reshape}(S S^\top \vecop(U))$).
+Finally apply $(Z\otimes K)^\top$ using the transpose identity
+\begin{equation}
+\label{eq:transpose-identity}
+ (Z\otimes K)^\top \vecop(\widetilde U)=\vecop(K\,\widetilde U\,Z),
+\end{equation}
+obtaining the main term $K(\widetilde U Z)$.
+Adding the Tikhonov term gives
+\begin{equation}
+\label{eq:matvec}
+Y = K\,(\widetilde U Z) + \lambda KX.
+\end{equation}
+
+\subsection*{How to compute $\widetilde U Z$ in $O(qr)$}
+We never form $\widetilde U$ explicitly as an $n\times M$ array. Instead, compute the product $H\equiv \widetilde U Z\in\RR^{n\times r}$ by accumulating contributions from the $q$ nonzeros:
+\begin{equation}
+\label{eq:sparse-mttkrp}
+H_{i_t,:} \mathrel{+}= u_t\, Z_{j_t,:}\qquad (t=1,\dots,q).
+\end{equation}
+Each update is a SAXPY of length $r$, so the cost is $O(qr)$.
+Then compute $K H$ in $O(n^2 r)$ time (dense $K$), and add $\lambda KX$.
+
+\paragraph{Matvec complexity.}
+Assuming dense $K$:
+\begin{itemize}
+\item $G=KX$: $O(n^2 r)$.
+\item gather $u_t$ via \eqref{eq:gather}: $O(qr)$ given access to $Z_{j_t,:}$; if $Z_{j_t,:}$ is computed on the fly from the CP factors, add $O(q(d-1)r)$.
+\item accumulate $H=\widetilde U Z$ via \eqref{eq:sparse-mttkrp}: $O(qr)$ (plus the same cost to form $Z_{j_t,:}$ if needed).
+\item $K H$ and $\lambda KX$: $O(n^2 r)$ (can reuse $G$ for $KX$).
+\end{itemize}
+Total per matvec: $O(n^2 r + q r)$ time if $Z$-rows are available (or $O(n^2 r + qdr)$ if computed on the fly), $O(nr+qr)$ memory for $X,G,H$ and index lists; crucially independent of $N=nM$.
+
+\section*{Computing the right-hand side $b$ without forming $T$}
+The right-hand side is $b=\vecop(KB)$. We can compute $B=T Z$ using only observed entries: if the observed tensor value at $(i_t,j_t)$ is $t_t$, then
+\[
+B_{i_t,:} \mathrel{+}= t_t\, Z_{j_t,:},
+\]
+which costs $O(qr)$ given access to $Z_{j_t,:}$ (or $O(qdr)$ if each $Z_{j_t,:}$ is formed on the fly from the CP factors), followed by $KB$ in $O(n^2 r)$. (This is the same sparse accumulation pattern as \eqref{eq:sparse-mttkrp}.)
+
+\section*{Preconditioning}
+
+\subsection*{Kronecker ``full-observation'' preconditioner}
+A standard and effective choice is to drop the mask $P$ (equivalently, pretend all entries are observed). Then
+\[
+A_0 \equiv (Z\otimes K)^\top (Z\otimes K) + \lambda(I_r\otimes K)
+= (Z^\top Z)\otimes (K^2) + \lambda(I_r\otimes K).
+\]
+Let $G\equiv Z^\top Z\in\RR^{r\times r}$. If we precompute eigendecompositions
+\[
+K=U\Lambda U^\top,\qquad G=V\Sigma V^\top,
+\]
+then $A_0$ diagonalizes in the Kronecker basis:
+\[
+A_0 = (V\otimes U)\,\mathrm{diag}\bigl(\sigma_a\lambda_b^2 + \lambda\lambda_b\bigr)_{a\in[r],b\in[n]}\,(V\otimes U)^\top.
+\]
+Hence applying $M^{-1}\approx A_0^{-1}$ to a vector $x=\vecop(X)$ can be done by:
+\begin{enumerate}
+\item transform $\widehat X \leftarrow U^\top X V$ (two small dense multiplies),
+\item elementwise divide $\widehat X_{b,a} \leftarrow \widehat X_{b,a}/(\sigma_a\lambda_b^2 + \lambda\lambda_b)$,
+\item inverse transform $X\leftarrow U\widehat X V^\top$.
+\end{enumerate}
+This costs $O(n^2 r + n r^2)$ per application (often dominated by $O(n^2 r)$ when $n\ge r$), after one-time setup $O(n^3+r^3)$.
+
+\paragraph{Why this is reasonable.}
+$A$ equals $A_0$ when $P=I_N$; when entries are missing uniformly at random, $\mathbb{E}[P]=(q/N)I_N$, so $\mathbb{E}[(Z\otimes K)^\top P (Z\otimes K)] = (q/N)(Z^\top Z\otimes K^2)$ is a scaled version of the same Kronecker term. Thus $A_0$ captures the dominant spectral structure, while $P$ acts as a perturbation; PCG corrects the mismatch through iterations.
+
+\subsection*{Simpler (cheaper) preconditioners}
+If eigendecompositions are too costly, a cheaper alternative is a block-diagonal preconditioner
+\[
+M_{\mathrm{bd}} = (\mathrm{diag}(G)\otimes K^2) + \lambda(I_r\otimes K),
+\]
+which decouples the $r$ components, requiring $r$ solves with $n\times n$ matrices of the form $(g_{\ell\ell} K^2 + \lambda K)=K(g_{\ell\ell}K+\lambda I)$. If $K$ is factored once (Cholesky), these are fast; if $K$ is large, one can use an approximate factorization (pivoted Cholesky / incomplete Cholesky) as a preconditioner for these inner solves.
+
+\section*{Overall complexity and scaling}
+Let $m$ be the number of PCG iterations to reach a desired tolerance.
+\begin{itemize}
+\item One-time setup: compute $Z$ and (optionally) $G=Z^\top Z$ in $O(Mr^2)$ if done naively, but in CP-ALS contexts $Z$ is implicit and $G$ is usually assembled from Hadamard products of Gram matrices of each factor at cost $O(\sum_{i\ne k} n_i r^2)$, avoiding $M$.
+\item Right-hand side: compute $B$ in $O(qr)$ and then $KB$ in $O(n^2 r)$.
+\item Each PCG iteration:
+  \begin{itemize}
+  \item matvec $Ax$: $O(n^2 r + q r)$.
+  \item preconditioner apply (Kronecker-eig): $O(n^2 r + n r^2)$.
+  \item vector updates/inner products: $O(nr)$.
+  \end{itemize}
+\end{itemize}
+Hence total time $O\bigl(m(n^2 r + q r + n r^2) + q r + n^2 r\bigr)$, which is dramatically better than $O(n^3 r^3)$ when $m\ll n^2 r^2$ and $q\ll N$.
+
+\paragraph{Key point: no $N$-scale work.}
+All operations are expressed in terms of $n,r,q$ and small Gram matrices; selection/scatter uses only the $q$ observed indices and values.
+
+\end{document}
