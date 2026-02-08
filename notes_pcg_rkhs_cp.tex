@@ -221,6 +221,7 @@ is a scaled version of the same Kronecker term.
 Thus $A_0$ (or the scaled variant $\alpha A_0$ with $\alpha=q/N$) captures the dominant spectral structure, while $P$ acts as a perturbation; PCG corrects the mismatch through iterations.
 Formally, writing $P=\alpha I + E$ gives $A=\alpha(Z^\top Z\otimes K^2)+\lambda(I\otimes K) + (Z\otimes K)^\top E (Z\otimes K)$, and
 \(\|(Z\otimes K)^\top E (Z\otimes K)\|\le \|E\|\,\|Z\|^2\,\|K\|^2\), so when the sampling mask is ``close'' to uniform (small $\|E\|$) the spectra of $A$ and $\alpha A_0$ are close.
+For common random-sampling models (entries observed i.i.d.\ or uniformly without replacement), standard matrix concentration bounds imply $\|E\|$ is small with high probability once $q$ is large enough, motivating the effectiveness of this preconditioner in practice.
 
 \subsection*{Simpler (cheaper) preconditioners}
 If eigendecompositions are too costly, a cheaper alternative is a block-diagonal preconditioner
