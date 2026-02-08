@@ -30,6 +30,11 @@ Overall: `O(n^2 r + q r)` time and `O(nr + q)` memory per matvec; independent of
 Compute `B = T Z` by iterating over the `q` observations:
 `B[i_t,:] += t_t z_t` (sparse MTTKRP), cost `O(qr)` (or `O(qdr)` if forming `z_t` on-the-fly), then compute `K B` in `O(n^2 r)`.
 
+## Optional change of variables
+If `K` is invertible, you can solve for the CP factor directly: `A_k = K W`. The objective becomes
+`min_A 0.5 ||P ∘ (T - A Z^T)||_F^2 + (λ/2) Tr(A^T K^{-1} A)`,
+with system `[(Z ⊗ I)^T P (Z ⊗ I) + λ (I ⊗ K^{-1})] vec(A) = vec(B)` and then recover `W = K^{-1} A`. This can reduce kernel *multiplications* (you only need solves with `K`).
+
 ## Preconditioner
 A practical Kronecker preconditioner drops the mask (`S S^T ≈ (q/N) I`), giving
 
