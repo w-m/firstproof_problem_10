@@ -1,3 +1,16 @@
+START: 2026-02-08T21:40:58+01:00
+
+- Session goal: address peer-review feedback and produce final_proof.tex/pdf.
+- Revisions: fixed notation collisions (\Gamma vs \Phi), clarified gather/scatter as vec/reshape operations, cleaned RHS observation notation.
+- Added: trace-matched choice of $\alpha$, expanded block-diagonal preconditioner option, and a standard PCG iteration-count bound via $\kappa(A_0^{-1}A)$.
+- Built: updated proof_submission.pdf and produced final_proof.tex/final_proof.pdf.
+
+END: 2026-02-08T21:43:52+01:00
+
+Summary: incorporated reviewer-requested completeness/presentation fixes and generated a final proof artifact.
+
+---
+
 START: 2026-02-08T17:08:00+01:00
 
 - Session goal: strengthen the write-up for solving the RKHS CP-ALS mode-k linear system with PCG, including operator-form matvecs, a Kronecker-style preconditioner, and a clear complexity/memory story.
