@@ -160,7 +160,9 @@ Assuming dense $K$:
 Total per matvec: $O(n^2 r + q r)$ time if $Z$-rows are available (or $O(n^2 r + qdr)$ if computed on the fly), $O(nr+qr)$ memory for $X,G,H$ and index lists; crucially independent of $N=nM$.
 
 \section*{Computing the right-hand side $b$ without forming $T$}
-The right-hand side is $b=\vecop(KB)$. We can compute $B=T Z$ using only observed entries: if the observed tensor value at $(i_t,j_t)$ is $t_t$, then
+The right-hand side can be written as $b=\mathcal{L}^\top y$ with $y=S^\top\vecop(T)$. Scattering $y$ back to an $n\times M$ matrix simply reconstructs $T$ (zeros at missing entries), so by \eqref{eq:transpose-identity} one has $\mathcal{L}^\top y=\vecop(K(TZ))$.
+Equivalently, $b=\vecop(KB)$ with $B=TZ$.
+We can compute $B$ using only observed entries: if the observed tensor value at $(i_t,j_t)$ is $t_t$, then
 \[
 B_{i_t,:} \mathrel{+}= t_t\, Z_{j_t,:},
 \]
